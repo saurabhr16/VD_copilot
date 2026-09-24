@@ -21,6 +21,17 @@ class BaseDetector:
     def detect(self, frame: np.ndarray) -> list[DetectionItem]: raise NotImplementedError
 
 
+def create_detector(detector_name: str = "mock-det-v1", **kwargs) -> BaseDetector:
+    """Create the configured detector without importing torch in mock mode."""
+    if detector_name.startswith("yolov8") or detector_name.startswith("yolo-v8"):
+        try:
+            return UltralyticsYOLOAdapter(**kwargs)
+        except (ImportError, OSError, RuntimeError) as exc:
+            print(f"YOLO unavailable, using mock detector: {exc}")
+    return MockDetector(person_conf=kwargs.get("person_conf", 0.5),
+                        weapon_conf=kwargs.get("weapon_conf", 0.4))
+
+
 class MockDetector(BaseDetector):
     """Motion-blob person detector + hinted weapon heuristic."""
 
@@ -118,11 +129,14 @@ class UltralyticsYOLOAdapter(BaseDetector):
 
     name = "yolo-v1"
 
-    def __init__(self, weights: str = "yolov8m.pt", person_conf: float = 0.5,
-                 weapon_conf: float = 0.4, device: str = "cuda:0"):
+    def __init__(self, weights: str = "yolov8n.pt", person_conf: float = 0.5,
+                 weapon_conf: float = 0.4, device: str = "auto"):
         from ultralytics import YOLO  # imported here so mock mode has no torch dep
+        import torch
 
         self.model = YOLO(weights)
+        if device == "auto":
+            device = "mps" if torch.backends.mps.is_available() else "cpu"
         self.model.to(device)
         self.person_conf = person_conf
         self.weapon_conf = weapon_conf
@@ -130,9 +144,15 @@ class UltralyticsYOLOAdapter(BaseDetector):
 
     def reset(self, scene_hint: str = "") -> None:
         self.scene_hint = scene_hint or ""
+        # Ultralytics stores ByteTrack state on the predictor when persist=True.
+        # Clearing it prevents track IDs leaking from one camera into another.
+        if getattr(self.model, "predictor", None) is not None:
+            self.model.predictor = None
 
     def detect(self, frame: np.ndarray) -> list[DetectionItem]:
-        res = self.model.predict(frame, verbose=False, conf=min(self.person_conf, self.weapon_conf))[0]
+        res = self.model.track(frame, persist=True, verbose=False,
+                                conf=min(self.person_conf, self.weapon_conf),
+                                tracker="bytetrack.yaml")[0]
         out = []
         for b in res.boxes:
             cls = res.names[int(b.cls[0])]

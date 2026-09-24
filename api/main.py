@@ -21,7 +21,7 @@ sys.path.insert(0, str(ROOT))
 
 from src.broker import Broker  # noqa: E402
 from src.config import database_url, load_config, redis_url  # noqa: E402
-from src.detection_mock import MockDetector  # noqa: E402
+from src.detection_mock import create_detector  # noqa: E402
 from src.embeddings import MockEmbeddingModel  # noqa: E402
 from src.ingestion import VideoIngestion, probe  # noqa: E402
 from src.metrics import Metrics  # noqa: E402
@@ -133,7 +133,13 @@ def camera_analysis(camera_id: str):
             raise HTTPException(404, "camera video not found")
         scene_hint = (row.extra or {}).get("scene_hint", "")
 
-    detector = MockDetector()
+    detector = create_detector(
+        cfg.model_versions.get("detector", "mock-det-v1"),
+        weights=cfg.system.get("yolo_weights", "yolov8n.pt"),
+        device=cfg.system.get("yolo_device", "auto"),
+        person_conf=float(cfg.thresholds.get("person_conf", 0.5)),
+        weapon_conf=float(cfg.thresholds.get("weapon_conf", 0.4)),
+    )
     detector.reset(scene_hint)
     detections = []
     try:
@@ -142,16 +148,13 @@ def camera_analysis(camera_id: str):
         for i, frame in enumerate(ing.iter_frames()):
             if i >= 8:
                 break
-            for d in detector.detect(frame.image):
-                key = (d.label, tuple(round(v, 2) for v in d.bbox))
-                if key in seen:
-                    continue
-                seen.add(key)
-                detections.append({
+            frame_detections = detector.detect(frame.image)
+            detections = [{
+                    "track_id": d.track_id,
                     "label": d.label,
                     "bbox": [round(float(v), 2) for v in d.bbox],
                     "confidence": round(float(d.confidence), 3),
-                })
+                } for d in frame_detections]
     except Exception:
         detections = []
     if not detections:

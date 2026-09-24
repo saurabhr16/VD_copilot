@@ -24,7 +24,7 @@ from .embeddings import MockEmbeddingModel
 from .incidents import IncidentManager
 from .ingestion import RollingBuffer, VideoIngestion
 from .anomaly_mock import MockAnomalyScorer
-from .detection_mock import MockDetector
+from .detection_mock import create_detector
 from .metrics import Metrics
 from .schemas import (AnomalyMessage, CandidateEvent, DetectionMessage,
                       IncidentRecord, VerificationMessage, new_id, utcnow)
@@ -37,8 +37,13 @@ class Pipeline:
         self.cfg = cfg
         self.db, self.broker, self.vectors, self.metrics = db, broker, vectors, metrics
         mv = cfg.model_versions
-        self.det = MockDetector(person_conf=float(cfg.thresholds.get("person_conf", 0.5)),
-                                weapon_conf=float(cfg.thresholds.get("weapon_conf", 0.4)))
+        self.det = create_detector(
+            cfg.model_versions.get("detector", "mock-det-v1"),
+            weights=cfg.system.get("yolo_weights", "yolov8n.pt"),
+            device=cfg.system.get("yolo_device", "auto"),
+            person_conf=float(cfg.thresholds.get("person_conf", 0.5)),
+            weapon_conf=float(cfg.thresholds.get("weapon_conf", 0.4)),
+        )
         self.anom = MockAnomalyScorer(smoothing_alpha=float(cfg.pipeline.get("smoothing_alpha", 0.4)))
         self.gen = CandidateGenerator(cfg)
         self.dec = DecisionEngine(high=float(cfg.thresholds.get("anomaly_high", 0.75)),

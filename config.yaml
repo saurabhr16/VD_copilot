@@ -4,10 +4,12 @@
 system:
   threshold_version: "t1.0"
   model_versions:
-    detector: "mock-det-v1"
+    detector: "yolov8n-track-v1"
     anomaly: "mock-anom-v1"
     vlm: "mock-vlm-v1"
     embedding: "mock-emb-v1"
+  yolo_weights: "yolov8n.pt"
+  yolo_device: "auto"
 
 pipeline:
   detection_fps: 5        # continuous object detection sampling rate

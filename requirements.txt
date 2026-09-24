@@ -12,9 +12,9 @@ imageio-ffmpeg==0.6.0
 opencv-python==4.11.0.86
 numpy==2.3.5
 pydantic==2.13.4
+ultralytics>=8.2,<9
 
-# --- Optional: real A6000 stack (uncomment on the GPU host, see docs/SWAP_TO_REAL_MODELS.md) ---
-# ultralytics>=8.2
+# --- Optional: real A6000 stack (use the CUDA-specific torch wheel on the GPU host) ---
 # torch>=2.4 --index-url https://download.pytorch.org/whl/cu121
 # transformers>=4.44
 # qdrant-client>=1.9
