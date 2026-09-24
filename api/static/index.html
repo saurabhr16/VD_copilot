@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Surveillance — Violence &amp; Anomaly Detection</title>
+<style>
+:root{--bg:#0e1116;--panel:#171c24;--panel2:#1f2632;--line:#2b3442;--txt:#e8ecf1;--mut:#9aa6b5;--acc:#4da3ff;--ok:#3fd68c;--warn:#ffb84d;--bad:#ff6b6b;--vio:#b28bff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:12px 20px;background:#12161d;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+header h1{font-size:16px;margin:0;font-weight:650}
+.badge{font-size:12px;padding:2px 10px;border-radius:20px;background:var(--panel2);border:1px solid var(--line);color:var(--mut)}
+.badge.ok{color:var(--ok);border-color:#1f4d3a}.badge.bad{color:var(--bad);border-color:#5a2b2b}
+nav{display:flex;gap:6px;margin-left:auto}
+nav button{background:transparent;border:1px solid transparent;color:var(--mut);padding:7px 14px;border-radius:8px;cursor:pointer;font-size:13px}
+nav button.on{background:var(--panel2);color:var(--txt);border-color:var(--line)}
+main{max-width:1180px;margin:0 auto;padding:20px}
+section.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+h2{font-size:14px;margin:0 0 12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+button,.btn{background:#2a7de1;border:0;color:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px}
+button:hover{background:#3a8bf0}button.ghost{background:var(--panel2);border:1px solid var(--line);color:var(--txt)}
+button.small{padding:5px 10px;font-size:12px}button:disabled{opacity:.5;cursor:wait}
+input,select,textarea{background:#0e141c;border:1px solid var(--line);color:var(--txt);padding:8px 10px;border-radius:8px;font-size:13px}
+input[type=file]{padding:6px}label{font-size:12px;color:var(--mut)}
+table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;color:var(--mut);font-weight:500;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:7px 8px;border-bottom:1px solid #222a36;vertical-align:top}
+.pill{display:inline-block;padding:1px 9px;border-radius:12px;font-size:12px;border:1px solid var(--line)}
+.pill.confirmed{color:var(--bad);border-color:#5a2b2b;background:#241414}.pill.rejected{color:var(--mut)}
+.pill.uncertain{color:var(--warn);border-color:#54452a;background:#221c10}.pill.insufficient_evidence{color:var(--vio);border-color:#43356b;background:#1c1830}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
+.card video{width:100%;border-radius:8px;background:#000;max-height:220px}
+.card .meta{font-size:12px;color:var(--mut);margin:6px 0}
+.card .desc{font-size:12.5px;margin:6px 0}
+.camera-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(250px,340px);gap:14px;align-items:start}
+.preview-stack{position:relative;display:inline-block;width:100%;max-width:420px;min-width:260px;aspect-ratio:16/9;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:#000}
+.preview-stack video,.preview-stack canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.preview-stack canvas{pointer-events:none}
+.story-panel{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
+.story-panel h3{margin:0 0 8px;font-size:13px;letter-spacing:.04em;color:var(--mut);text-transform:uppercase}
+.story-panel .story-text{font-size:13px;line-height:1.5;color:var(--txt);margin-bottom:10px}
+.object-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.object-row{display:flex;justify-content:space-between;gap:8px;padding:7px 8px;border-radius:8px;background:#121a23;border:1px solid var(--line);font-size:12px}
+.object-row span{display:inline-block}
+.object-row .label{font-weight:600}
+.object-row .bbox{color:var(--mut)}
+.fb{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+pre{background:#0b0f14;border:1px solid var(--line);border-radius:8px;padding:10px;overflow:auto;font-size:12px;max-height:320px}
+.tab{display:none}.tab.on{display:block}
+#jobbar{font-size:13px;color:var(--mut);margin-top:10px}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:s 1s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes s{to{transform:rotate(360deg)}}
+.hint{font-size:12px;color:var(--mut)}
+.kv{display:grid;grid-template-columns:180px 1fr;gap:4px 10px;font-size:13px}
+</style>
+</head>
+<body>
+<header>
+<h1>🎥 Violence &amp; Anomaly Detection <span class="hint">— prototype (mock models, file input)</span></h1>
+<span id="health" class="badge">connecting…</span>
+<nav>
+<button data-tab="cams" class="on">Cameras</button>
+<button data-tab="incs">Incidents <span id="n-alert"></span></button>
+<button data-tab="search">Search</button>
+<button data-tab="sys">System</button>
+</nav>
+</header>
+<main>
+<!-- CAMERAS -->
+<div id="tab-cams" class="tab on">
+<section class="panel"><h2>1 · Video sources (4-camera demo)</h2>
+<div class="row">
+<button id="btn-demo">Load 4 demo videos</button>
+<button id="btn-run" class="ghost">▶ Run detection pipeline</button>
+<span id="jobbar"></span>
+</div>
+<p class="hint">Demo set: cam01 normal · cam02 fight · cam03 weapon · cam04 running. Or upload your own MP4/WebM/AVI files below (any 4).</p>
+<div id="cams"></div>
+<div id="camera-story-panel" class="story-panel" style="margin-top:12px">
+  <h3>Incident story</h3>
+  <div id="story-camera" class="hint">Select a camera</div>
+  <div id="camera-story-text" class="story-text">No camera selected yet.</div>
+  <div id="camera-objects" class="object-list"></div>
+</div>
+</section>
+<section class="panel"><h2>Upload a camera video</h2>
+<div class="row">
+<label>Camera ID <input id="up-id" value="cam05" size="8"></label>
+<label>File <input id="up-file" type="file" accept="video/*"></label>
+<label>Scene hint <input id="up-hint" placeholder="e.g. fight / normal / weapon" size="22"></label>
+<button id="btn-up">Upload</button>
+<span id="up-status" class="hint"></span>
+</div>
+<p class="hint">Scene hint steers the <em>mock</em> models only (stand-in for learned behavior). Real YOLO/VadCLIP/Qwen2-VL need no hints.</p>
+</section>
+</div>
+<!-- INCIDENTS -->
+<div id="tab-incs" class="tab">
+<section class="panel"><h2>Incidents &amp; alerts</h2>
+<div class="row" style="margin-bottom:10px">
+<label>Status <select id="f-status"><option value="">all</option><option>confirmed</option><option>uncertain</option><option>rejected</option><option>insufficient_evidence</option></select></label>
+<label>Camera <select id="f-cam"><option value="">all</option></select></label>
+<button id="btn-inc" class="ghost small">Refresh</button>
+</div>
+<div id="incs" class="grid"></div>
+</section>
+</div>
+<!-- SEARCH -->
+<div id="tab-search" class="tab">
+<section class="panel"><h2>Semantic search over archived clips</h2>
+<div class="row">
+<input id="q" size="46" placeholder='e.g. "person holding a knife"'>
+<button id="btn-q">Search</button>
+<label>Top-K <select id="q-k"><option>3</option><option selected>5</option><option>10</option></select></label>
+</div>
+<p class="hint">Try: “two people fighting” · “person running” · “physical assault” · “calm hallway”</p>
+<div id="hits" class="grid" style="margin-top:12px"></div>
+</section>
+</div>
+<!-- SYSTEM -->
+<div id="tab-sys" class="tab">
+<section class="panel"><h2>Configuration (versioned thresholds)</h2><pre id="cfg">…</pre></section>
+<section class="panel"><h2>Telemetry</h2>
+<div class="row"><button id="btn-m" class="ghost small">Refresh</button></div>
+<pre id="mets">…</pre></section>
+<section class="panel"><h2>Message broker</h2>
+<div class="row"><label>Stream <select id="b-stream"><option>incidents</option><option>alerts</option><option>candidates</option><option>anomalies</option><option>detections</option></select></label>
+<button id="btn-b" class="ghost small">Read</button></div>
+<pre id="broker">…</pre></section>
+</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const api=(m,u,b,f)=>{const o={method:m};if(f){o.body=f}else if(b){o.headers={'Content-Type':'application/json'};o.body=JSON.stringify(b)}return fetch(u,o).then(r=>{if(!r.ok)throw new Error(r.status+' '+r.statusText);return r.json()})};
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));b.classList.add('on');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));$('tab-'+b.dataset.tab).classList.add('on');if(b.dataset.tab==='incs')loadIncs();if(b.dataset.tab==='sys')loadSys()});
+async function health(){try{const h=await api('GET','/api/health');$('health').textContent=`● ${h.broker} · ${h.vectors} vectors · ${h.threshold_version}`;$('health').className='badge ok'}catch(e){$('health').textContent='● offline';$('health').className='badge bad'}}
+function colorForLabel(label){const map={person:'#4da3ff',knife:'#ff6b6b',gun:'#ffb84d',vehicle:'#3fd68c',bag:'#b28bff'};return map[label]||'#3fd68c'}
+function drawDetections(canvas, detections=[]){if(!canvas)return;const ctx=canvas.getContext('2d');const w=canvas.width,h=canvas.height;ctx.clearRect(0,0,w,h);ctx.fillStyle='rgba(0,0,0,0.15)';ctx.fillRect(0,0,w,h);for(const d of detections||[]){const [x1,y1,x2,y2]=d.bbox||[0,0,0,0];const sx=(x1/640)*w,sy=(y1/360)*h,sx2=(x2/640)*w,sy2=(y2/360)*h;ctx.strokeStyle=colorForLabel(d.label);ctx.lineWidth=2;ctx.strokeRect(sx,sy,sx2-sx,sy2-sy);ctx.fillStyle='rgba(10,12,16,0.85)';ctx.fillRect(sx+2,Math.max(0,sy-16),Math.max(60,Math.min(120,ctx.measureText(d.label).width+18)),16);ctx.fillStyle='#fff';ctx.font='11px sans-serif';ctx.fillText(d.label, sx+8, Math.max(10,sy-4));}}
+async function refreshCameraStory(cameraId){const data=await api('GET',`/api/cameras/${cameraId}/analysis`);const sc=$('story-camera');const st=$('camera-story-text');const list=$('camera-objects');const storyText = data.vlm_summary || data.story || 'No story available.';sc.textContent=`${cameraId} · ${data.scene_hint||'general monitoring'}`;st.textContent=storyText;list.innerHTML=(data.detections||[]).map(d=>`<div class="object-row"><span class="label" style="color:${colorForLabel(d.label)}">${d.label}</span><span class="bbox">${d.bbox.map(v=>Number(v).toFixed(0)).join(', ')}</span><span>${Number(d.confidence).toFixed(2)}</span></div>`).join('')||'<div class="hint">No objects detected.</div>';
+const canvas=document.querySelector(`canvas[data-camera="${cameraId}"]`);if(canvas)drawDetections(canvas,data.detections||[]);}
+async function loadCams(){let c=await api('GET','/api/cameras');if(!c.length){try{await api('POST','/api/cameras/demo');c=await api('GET','/api/cameras');}catch(err){}};$('cams').innerHTML=c.length?`<table><tr><th>Camera</th><th>Live preview</th><th>Source</th><th>Resolution/FPS</th><th>Duration</th><th>Status</th><th>Hint</th></tr>${c.map(r=>`<tr data-camera="${r.camera_id}" style="cursor:pointer"><td><b>${r.camera_id}</b></td><td><div class="preview-stack"><video muted loop playsinline autoplay src="/api/cameras/${r.camera_id}/video" preload="metadata"></video><canvas data-camera="${r.camera_id}" width="640" height="360"></canvas></div></td><td class="hint">${(r.source_path||'').split('/').pop()}</td><td>${r.width}×${r.height} @ ${r.fps}fps</td><td>${r.duration_s}s</td><td>${r.status}</td><td class="hint">${(r.extra||{}).scene_hint||''}</td></tr>`).join('')}</table>`:'<p class="hint">No cameras yet — load the demo set or upload videos.</p>';$('f-cam').innerHTML='<option value="">all</option>'+c.map(r=>`<option>${r.camera_id}</option>`).join('');
+if(c.length){const first=c[0].camera_id;await refreshCameraStory(first);$('cams').querySelectorAll('tr[data-camera]').forEach(row=>{row.onclick=()=>{const id=row.dataset.camera;refreshCameraStory(id);}});for(const cam of c){const canvas=document.querySelector(`canvas[data-camera="${cam.camera_id}"]`);if(canvas){try{const data=await api('GET',`/api/cameras/${cam.camera_id}/analysis`);drawDetections(canvas,data.detections||[]);}catch(err){}}}}}
+$('btn-demo').onclick=async e=>{e.target.disabled=true;$('jobbar').textContent='generating demo videos…';try{await api('POST','/api/cameras/demo');await loadCams();$('jobbar').textContent='demo videos ready — press Run.'}catch(err){$('jobbar').textContent='error: '+err.message}e.target.disabled=false};
+$('btn-up').onclick=async e=>{const f=$('up-file').files[0];if(!f){$('up-status').textContent='choose a file first';return}e.target.disabled=true;$('up-status').textContent='uploading…';try{const fd=new FormData();fd.append('camera_id',$('up-id').value);fd.append('file',f);fd.append('scene_hint',$('up-hint').value);await api('POST','/api/cameras/upload',null,fd);$('up-status').textContent='uploaded ✓';await loadCams()}catch(err){$('up-status').textContent='error: '+err.message}e.target.disabled=false};
+let poll=null;
+$('btn-run').onclick=async e=>{e.target.disabled=true;try{const j=await api('POST','/api/pipeline/run',{});$('jobbar').innerHTML='<span class="spin"></span>running…';clearInterval(poll);poll=setInterval(async()=>{try{const s=await api('GET','/api/jobs/'+j.job_id);$('jobbar').innerHTML=s.status==='running'?`<span class="spin"></span>${s.current||''} (${s.progress||''})`:s.status==='done'?`✓ done — ${(s.results||[]).map(r=>r.camera_id+':'+r.incidents.length+' incidents').join(' · ')}`:'error: '+(s.error||s.status);if(s.status!=='running'&&s.status!=='queued'){clearInterval(poll);e.target.disabled=false;loadCams();loadIncs()}}catch(err){$('jobbar').textContent='poll error'}},1500)}catch(err){$('jobbar').textContent='error: '+err.message;e.target.disabled=false}};
+function incCard(r){const v=r.clip_id?`<video controls preload="metadata" src="/api/clips/${r.clip_id}/video"></video>`:'<p class="hint">no clip</p>';const fb=r.operator_decision?`operator: <b>${r.operator_decision}</b>`:`<div class="fb"><button class="small" onclick="fb('${r.incident_id}','confirmed')">Confirm</button><button class="small ghost" onclick="fb('${r.incident_id}','false_positive')">False&nbsp;positive</button><button class="small ghost" onclick="fb('${r.incident_id}','uncertain')">Uncertain</button><button class="small ghost" onclick="fb('${r.incident_id}','escalated')">Escalate</button></div>`;return `<div class="card"><div class="row"><span class="pill ${r.status}">${r.status}</span><b>${r.event_type||'?'}</b><span class="hint">${r.camera_id}</span></div>${v}<div class="meta">${r.window_start}s → ${r.window_end}s · max anomaly ${(Math.max(...(r.anomaly_scores||[0]))).toFixed(2)} · ${(r.candidate_ids||[]).length} candidate(s)<br><span class="hint">${r.incident_id} · ${(r.threshold_version||'')} · ${(r.model_version||'').slice(0,40)}</span></div><div class="desc">${(r.vlm_descriptions||[])[0]||''}</div>${fb}</div>`}
+async function loadIncs(){const st=$('f-status').value,cm=$('f-cam').value;const q=`?${st?'status='+st+'&':''}${cm?'camera_id='+cm:''}`;const list=await api('GET','/api/incidents'+q);$('incs').innerHTML=list.length?list.map(incCard).join(''):'<p class="hint">No incidents yet — run the pipeline.</p>';const n=list.filter(r=>r.status==='confirmed'&&!r.operator_decision).length;$('n-alert').textContent=n?`(${n})`:''}
+window.fb=async(id,d)=>{await api('POST',`/api/incidents/${id}/feedback`,{decision:d});loadIncs()};
+$('btn-inc').onclick=loadIncs;
+$('btn-q').onclick=async()=>{const res=await api('POST','/api/search',{query:$('q').value,top_k:+$('q-k').value});$('hits').innerHTML=res.hits.length?res.hits.map(h=>`<div class="card"><b>${h.score.toFixed(3)}</b> · ${h.event_type||'?'} · <span class="hint">${h.camera_id}</span><video controls preload="metadata" src="/api/clips/${h.clip_id}/video"></video><div class="desc">${h.description||''}</div></div>`).join(''):'<p class="hint">No indexed clips yet — run the pipeline first (confirmed/uncertain clips are indexed).</p>'};
+async function loadSys(){$('cfg').textContent=JSON.stringify(await api('GET','/api/config'),null,1);$('mets').textContent=JSON.stringify(await api('GET','/api/metrics'),null,1);$('broker').textContent=JSON.stringify(await api('GET','/api/broker?stream='+$('b-stream').value),null,1)}
+$('btn-m').onclick=()=>api('GET','/api/metrics').then(m=>$('mets').textContent=JSON.stringify(m,null,1));
+$('btn-b').onclick=()=>api('GET','/api/broker?stream='+$('b-stream').value).then(b=>$('broker').textContent=JSON.stringify(b,null,1));
+health();loadCams();setInterval(health,10000);
+</script>
+</body>
+</html>

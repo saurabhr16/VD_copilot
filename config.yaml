@@ -1,0 +1,46 @@
+# Violence-detection surveillance prototype — central configuration.
+# Every threshold is versioned (PRD §31): threshold_version is stamped on every
+# incident so you can always tell which config produced an alert.
+system:
+  threshold_version: "t1.0"
+  model_versions:
+    detector: "mock-det-v1"
+    anomaly: "mock-anom-v1"
+    vlm: "mock-vlm-v1"
+    embedding: "mock-emb-v1"
+
+pipeline:
+  detection_fps: 5        # continuous object detection sampling rate
+  anomaly_fps: 5          # temporal-analysis sampling rate
+  window_seconds: 4       # PRD §8: temporal window duration
+  stride_seconds: 2       # 50% overlap -> no boundary misses
+  smoothing_alpha: 0.4    # EMA over window scores
+  min_event_seconds: 2    # events shorter than this are still kept, flagged short
+  persistence_windows: 1  # consecutive windows >= threshold to fire (1 = responsive demo)
+  cooldown_seconds: 30    # per-camera dedup cooldown (PRD §11)
+
+thresholds:
+  anomaly_candidate: 0.55 # window score that creates a candidate on its own
+  anomaly_high: 0.75      # high-priority candidate
+  person_conf: 0.5
+  weapon_conf: 0.4
+  anomaly_person_boost: 0.45  # 2+ persons + score above this also fires (multi-signal)
+
+recording:
+  pre_seconds: 5
+  post_seconds: 5
+
+vlm_queue:
+  max_depth: 50
+  ttl_seconds: 120
+  max_concurrent: 2       # on the A6000: 1-2 concurrent Qwen2-VL requests
+
+retention:
+  clips_days: 30
+
+defaults:
+  fps: 10
+  enabled_event_types: [assault, fighting, stabbing, shooting, chain_snatching]
+
+# Per-camera overrides (camera ids are created at upload time; add entries as needed).
+cameras: {}

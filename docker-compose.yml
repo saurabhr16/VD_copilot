@@ -1,0 +1,27 @@
+# Full stack for the WSL2 / GPU host (PRD §15, §32-34).
+# Prototype defaults work with ZERO infra (fakeredis + SQLite + numpy vectors).
+# Uncomment/set URLs below to use the real backing services.
+services:
+  api:
+    build: .
+    ports: ["8000:8000"]
+    volumes: ["./data:/app/data", "./demo_videos:/app/demo_videos", "./config.yaml:/app/config.yaml"]
+    environment:
+      # DATABASE_URL: postgresql+psycopg://vsd:vsd@postgres:5432/vsd
+      # REDIS_URL: redis://redis:6379/0
+      VSD_CONFIG: /app/config.yaml
+    # depends_on: [redis, postgres, qdrant]  # when using real infra
+
+  # redis:
+  #   image: redis:7-alpine
+  #   ports: ["6379:6379"]
+  # postgres:
+  #   image: postgres:16-alpine
+  #   environment: {POSTGRES_USER: vsd, POSTGRES_PASSWORD: vsd, POSTGRES_DB: vsd}
+  #   volumes: ["pgdata:/var/lib/postgresql/data"]
+  # qdrant:
+  #   image: qdrant/qdrant:v1.9.4
+  #   ports: ["6333:6333"]
+  #   volumes: ["qdrant:/qdrant/storage"]
+
+# volumes: {pgdata: {}, qdrant: {}}

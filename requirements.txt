@@ -1,0 +1,22 @@
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+sqlalchemy==2.0.54
+pyyaml==6.0.3
+pytest==9.0.3
+httpx==0.28.1
+python-multipart==0.0.32
+psutil==7.2.2
+fakeredis==2.38.0
+redis==8.1.0
+imageio-ffmpeg==0.6.0
+opencv-python==4.11.0.86
+numpy==2.3.5
+pydantic==2.13.4
+
+# --- Optional: real A6000 stack (uncomment on the GPU host, see docs/SWAP_TO_REAL_MODELS.md) ---
+# ultralytics>=8.2
+# torch>=2.4 --index-url https://download.pytorch.org/whl/cu121
+# transformers>=4.44
+# qdrant-client>=1.9
+# psycopg[binary]>=3.1
+# vllm>=0.5  # for Qwen2-VL serving
