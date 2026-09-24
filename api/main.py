@@ -75,7 +75,9 @@ def health():
     return {"status": "ok", "broker": broker.mode, "broker_ok": broker.ping(),
             "db": database_url(cfg).split("://")[0], "vectors": len(vectors),
             "threshold_version": cfg.threshold_version,
-            "models": cfg.model_versions, "time": time.time()}
+            "models": cfg.model_versions,
+            "detector_runtime": pipe.det.name,
+            "time": time.time()}
 
 
 @app.get("/api/metrics")
