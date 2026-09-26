@@ -31,6 +31,8 @@ class DetectionItem(BaseModel):
     label: str  # person | knife | gun | bag | vehicle | ...
     bbox: list[float]  # [x1, y1, x2, y2] in pixels
     confidence: float
+    occluded: bool = False
+    suspect: bool = False
 
 
 class DetectionMessage(BaseModel):

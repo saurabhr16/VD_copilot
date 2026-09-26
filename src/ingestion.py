@@ -61,7 +61,7 @@ class RollingBuffer:
 
 
 class VideoIngestion:
-    def __init__(self, source: str, target_fps: float = 5.0):
+    def __init__(self, source: str, target_fps: float | None = 5.0):
         self.source = source
         self.target_fps = target_fps
         self.info = probe(source)
@@ -73,7 +73,7 @@ class VideoIngestion:
         """Yield sampled frames with monotonic timestamps."""
         cap = cv2.VideoCapture(self.source)
         src_fps = self.info.fps or 10.0
-        step = max(1, round(src_fps / self.target_fps))
+        step = 1 if self.target_fps is None or self.target_fps <= 0 else max(1, round(src_fps / self.target_fps))
         idx, out_t, prev = 0, 0.0, None
         while True:
             ok, frame = cap.read()

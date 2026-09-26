@@ -24,7 +24,7 @@ from .embeddings import MockEmbeddingModel
 from .incidents import IncidentManager
 from .ingestion import RollingBuffer, VideoIngestion
 from .anomaly_mock import MockAnomalyScorer
-from .detection_mock import create_detector
+from .detector import create_detector
 from .metrics import Metrics
 from .schemas import (AnomalyMessage, CandidateEvent, DetectionMessage,
                       IncidentRecord, VerificationMessage, new_id, utcnow)
@@ -38,9 +38,9 @@ class Pipeline:
         self.db, self.broker, self.vectors, self.metrics = db, broker, vectors, metrics
         mv = cfg.model_versions
         self.det = create_detector(
-            cfg.model_versions.get("detector", "mock-det-v1"),
             weights=cfg.system.get("yolo_weights", "yolov8n.pt"),
             device=cfg.system.get("yolo_device", "auto"),
+            imgsz=int(cfg.system.get("yolo_imgsz", 320)),
             person_conf=float(cfg.thresholds.get("person_conf", 0.5)),
             weapon_conf=float(cfg.thresholds.get("weapon_conf", 0.4)),
         )
@@ -67,7 +67,7 @@ class Pipeline:
         self.det.reset(scene_hint)
         self.anom.reset(scene_hint)
         self.gen.reset(camera_id)
-        ing = VideoIngestion(source, target_fps=det_fps)
+        ing = VideoIngestion(source, target_fps=None if det_fps <= 0 else det_fps)
         buf = RollingBuffer(max_seconds=win + float(self.cfg.recording.get("pre_seconds", 5)))
 
         sampled: list[tuple[float, object, list]] = []  # (t, image, detections)

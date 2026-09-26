@@ -21,7 +21,7 @@ sys.path.insert(0, str(ROOT))
 
 from src.broker import Broker  # noqa: E402
 from src.config import database_url, load_config, redis_url  # noqa: E402
-from src.detection_mock import create_detector  # noqa: E402
+from src.detector import create_detector  # noqa: E402
 from src.embeddings import MockEmbeddingModel  # noqa: E402
 from src.ingestion import VideoIngestion, probe  # noqa: E402
 from src.metrics import Metrics  # noqa: E402
@@ -46,6 +46,8 @@ app = FastAPI(title="Violence-Detection Surveillance Prototype", version="0.1.0"
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 jobs: dict[str, dict] = {}
+analysis_cache: dict[str, tuple[tuple, dict]] = {}
+detector_cache: dict[tuple, object] = {}
 pool = ThreadPoolExecutor(max_workers=1)  # sequential pipeline runs (SQLite-safe)
 
 
@@ -67,7 +69,7 @@ def _scene_hint_from_name(name: str) -> str:
 # -------------------------------------------------------------------- pages
 @app.get("/", response_class=HTMLResponse)
 def dashboard():
-    return (ROOT / "api" / "static" / "index.html").read_text()
+    return (ROOT / "api" / "static" / "index.html").read_text(encoding="utf-8")
 
 
 @app.get("/api/health")
@@ -134,57 +136,74 @@ def camera_analysis(camera_id: str):
         if not source or not Path(source).exists():
             raise HTTPException(404, "camera video not found")
         scene_hint = (row.extra or {}).get("scene_hint", "")
+        source_stat = Path(source).stat()
+        cache_key = (source, source_stat.st_mtime_ns, source_stat.st_size, scene_hint,
+                     cfg.system.get("yolo_imgsz", 320), id(VideoIngestion), id(create_detector))
+    cached = analysis_cache.get(camera_id)
+    if cached and cached[0] == cache_key:
+        return cached[1]
 
-    detector = create_detector(
-        cfg.model_versions.get("detector", "mock-det-v1"),
-        weights=cfg.system.get("yolo_weights", "yolov8n.pt"),
-        device=cfg.system.get("yolo_device", "auto"),
-        person_conf=float(cfg.thresholds.get("person_conf", 0.5)),
-        weapon_conf=float(cfg.thresholds.get("weapon_conf", 0.4)),
-    )
+    detector_key = (cfg.system.get("yolo_weights", "yolov8n.pt"),
+                    cfg.system.get("yolo_device", "auto"),
+                    int(cfg.system.get("yolo_imgsz", 320)),
+                    float(cfg.thresholds.get("person_conf", 0.5)),
+                    float(cfg.thresholds.get("weapon_conf", 0.4)), id(create_detector))
+    detector = detector_cache.get(detector_key)
+    if detector is None:
+        detector = create_detector(weights=detector_key[0], device=detector_key[1],
+                                   imgsz=detector_key[2], person_conf=detector_key[3],
+                                   weapon_conf=detector_key[4])
+        detector_cache[detector_key] = detector
     detector.reset(scene_hint)
     detections = []
+    frame_results = []
     try:
-        ing = VideoIngestion(source, target_fps=5)
-        seen = set()
+        preview_fps = float(cfg.system.get("preview_fps", 5))
+        preview_seconds = float(cfg.system.get("preview_seconds", 12))
+        ing = VideoIngestion(source, target_fps=preview_fps)
+        frame_detections_by_label: dict[str, dict] = {}
         for i, frame in enumerate(ing.iter_frames()):
-            if i >= 8:
+            frame_timestamp = float(getattr(frame, "t", i / preview_fps if preview_fps else i))
+            if frame_timestamp > preview_seconds:
                 break
-            frame_detections = detector.detect(frame.image)
-            detections = [{
+            frame_detections = []
+            for d in detector.detect(frame.image):
+                payload = {
                     "track_id": d.track_id,
                     "label": d.label,
                     "bbox": [round(float(v), 2) for v in d.bbox],
                     "confidence": round(float(d.confidence), 3),
-                } for d in frame_detections]
+                    "occluded": bool(d.occluded),
+                    "suspect": bool(d.suspect),
+                }
+                frame_detections.append(payload)
+                key = (d.track_id or d.label, d.label)
+                if key not in frame_detections_by_label:
+                    frame_detections_by_label[key] = payload
+                else:
+                    prev = frame_detections_by_label[key]
+                    if payload["confidence"] > prev["confidence"]:
+                        frame_detections_by_label[key] = payload
+            frame_results.append({"frame_index": i, "timestamp": round(frame_timestamp, 3),
+                                  "detections": frame_detections})
+        detections = list(frame_detections_by_label.values())
     except Exception:
         detections = []
-    if not detections:
-        lower = scene_hint.lower()
-        labels = []
-        if "weapon" in lower or "knife" in lower or "gun" in lower or "stab" in lower:
-            labels = ["person", "knife"]
-        elif "fight" in lower or "assault" in lower or "attack" in lower:
-            labels = ["person", "person"]
-        elif "run" in lower or "chase" in lower:
-            labels = ["person"]
-        else:
-            labels = ["person"]
-        detections = [{
-            "label": label,
-            "bbox": [60.0, 70.0, 200.0, 240.0] if label == "person" else [150.0, 90.0, 220.0, 145.0],
-            "confidence": 0.72 if label == "person" else 0.83,
-        } for label in labels[:2]]
 
     story = NarrativeGenerator().narrative_for_camera(camera_id, scene_hint, detections)
-    return {
+    response = {
         "camera_id": camera_id,
         "scene_hint": scene_hint,
         "story": story,
         "vlm_summary": story,
         "detections": detections,
+        "frames": frame_results,
+        "width": row.width,
+        "height": row.height,
         "source": source,
     }
+    analysis_cache[camera_id] = (cache_key, response)
+    return response
 
 
 @app.post("/api/cameras/upload")
@@ -214,6 +233,7 @@ async def upload_camera(camera_id: str = Form(...),
             for k, v in data.items():
                 setattr(row, k, v)
         s.commit()
+    analysis_cache.pop(camera_id, None)
     return {"camera_id": camera_id, "scene_hint": hint, "duration_s": round(info.duration_s, 2),
             "fps": info.fps, "frames": info.frames}
 
@@ -239,6 +259,7 @@ def load_demo_videos():
                 for k, v in data.items():
                     setattr(row, k, v)
             s.commit()
+        analysis_cache.pop(camera_id, None)
         out.append({"camera_id": camera_id, "scene_hint": hint,
                     "duration_s": round(info.duration_s, 2)})
     return {"cameras": out}

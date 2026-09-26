@@ -4,15 +4,18 @@
 system:
   threshold_version: "t1.0"
   model_versions:
-    detector: "yolov8n-track-v1"
+    detector: "yolo-person-track-v2"
     anomaly: "mock-anom-v1"
     vlm: "mock-vlm-v1"
     embedding: "mock-emb-v1"
   yolo_weights: "yolov8n.pt"
   yolo_device: "auto"
+  yolo_imgsz: 320
+  preview_fps: 5
+  preview_seconds: 12
 
 pipeline:
-  detection_fps: 5        # continuous object detection sampling rate
+  detection_fps: 0        # 0 = run object detection on every decoded frame
   anomaly_fps: 5          # temporal-analysis sampling rate
   window_seconds: 4       # PRD §8: temporal window duration
   stride_seconds: 2       # 50% overlap -> no boundary misses
